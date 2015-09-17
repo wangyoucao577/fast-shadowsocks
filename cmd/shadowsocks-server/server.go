@@ -5,7 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	ss "github.com/shadowsocks/shadowsocks-go/shadowsocks"
+	ss "../../shadowsocks"
 	"io"
 	"log"
 	"net"
@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"sync"
 	"syscall"
+	
+	"../../pipe"
 )
 
 var debug ss.DebugLog
@@ -43,8 +45,13 @@ func getRequest(conn *ss.Conn) (host string, extra []byte, err error) {
 	// read till we get possible domain length field
 	ss.SetReadTimeout(conn)
 	if n, err = io.ReadAtLeast(conn, buf, idDmLen+1); err != nil {
-		return
+		if err == io.ErrShortBuffer {
+			
+		} else {
+			return
+		}
 	}
+	//log.Println(n, buf[:8])
 
 	reqLen := -1
 	switch buf[idType] {
@@ -58,10 +65,15 @@ func getRequest(conn *ss.Conn) (host string, extra []byte, err error) {
 		err = fmt.Errorf("addr type %d not supported", buf[idType])
 		return
 	}
-
+	
 	if n < reqLen { // rare case
-		if _, err = io.ReadFull(conn, buf[n:reqLen]); err != nil {
-			return
+		var _n int
+		if _n, err = io.ReadFull(conn, buf[n:reqLen]); err != nil {
+			if _n > 0 && err != io.ErrUnexpectedEOF {
+				
+			} else {
+				return
+			}
 		}
 	} else if n > reqLen {
 		// it's possible to read more than just the request head
@@ -125,6 +137,7 @@ func handleConnection(conn *ss.Conn) {
 	}
 	debug.Println("connecting", host)
 	remote, err := net.Dial("tcp", host)
+	//remote, err := pipe.Dial(host)
 	if err != nil {
 		if ne, ok := err.(*net.OpError); ok && (ne.Err == syscall.EMFILE || ne.Err == syscall.ENFILE) {
 			// log too many open file error
@@ -140,6 +153,7 @@ func handleConnection(conn *ss.Conn) {
 			remote.Close()
 		}
 	}()
+	
 	// write extra bytes read from
 	if extra != nil {
 		// debug.Println("getRequest read extra data, writing to remote, len", len(extra))
@@ -159,7 +173,7 @@ func handleConnection(conn *ss.Conn) {
 
 type PortListener struct {
 	password string
-	listener net.Listener
+	listener *pipe.Listener
 }
 
 type PasswdManager struct {
@@ -167,7 +181,7 @@ type PasswdManager struct {
 	portListener map[string]*PortListener
 }
 
-func (pm *PasswdManager) add(port, password string, listener net.Listener) {
+func (pm *PasswdManager) add(port, password string, listener *pipe.Listener) {
 	pm.Lock()
 	pm.portListener[port] = &PortListener{password, listener}
 	pm.Unlock()
@@ -255,7 +269,8 @@ func waitSignal() {
 }
 
 func run(port, password string) {
-	ln, err := net.Listen("tcp", ":"+port)
+	//ln, err := net.Listen("tcp", ":"+port)
+	ln, err := pipe.Listen(":"+port)
 	if err != nil {
 		log.Printf("error listening port %v: %v\n", port, err)
 		os.Exit(1)
@@ -309,6 +324,7 @@ var config *ss.Config
 
 func main() {
 	log.SetOutput(os.Stdout)
+	log.SetFlags(log.Lshortfile | log.Ldate | log.Ltime)
 
 	var cmdConfig ss.Config
 	var printVer bool

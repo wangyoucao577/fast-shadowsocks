@@ -5,7 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	ss "github.com/shadowsocks/shadowsocks-go/shadowsocks"
+	ss "../../shadowsocks"
 	"io"
 	"log"
 	"math/rand"
@@ -14,6 +14,8 @@ import (
 	"path"
 	"strconv"
 	"time"
+	
+	"../../pipe"
 )
 
 var debug ss.DebugLog
@@ -228,9 +230,23 @@ func parseServerConfig(config *ss.Config) {
 	return
 }
 
+func DialWithRawAddrKCP(rawaddr []byte, server string, cipher *ss.Cipher) (c *ss.Conn, err error) {
+	conn, err := pipe.Dial(server)
+	if err != nil {
+		return
+	}
+	c = ss.NewConn(conn, cipher)
+	if _, err = c.Write(rawaddr); err != nil {
+		c.Close()
+		return nil, err
+	}
+	return
+}
+
 func connectToServer(serverId int, rawaddr []byte, addr string) (remote *ss.Conn, err error) {
 	se := servers.srvCipher[serverId]
-	remote, err = ss.DialWithRawAddr(rawaddr, se.server, se.cipher.Copy())
+	//remote, err = ss.DialWithRawAddr(rawaddr, se.server, se.cipher.Copy())
+	remote, err = DialWithRawAddrKCP(rawaddr, se.server, se.cipher.Copy())
 	if err != nil {
 		log.Println("error connecting to shadowsocks server:", err)
 		const maxFailCnt = 30
@@ -305,6 +321,7 @@ func handleConnection(conn net.Conn) {
 
 	remote, err := createServerConn(rawaddr, addr)
 	if err != nil {
+		log.Println(err)
 		if len(servers.srvCipher) > 1 {
 			log.Println("Failed connect to all avaiable shadowsocks server")
 		}
@@ -344,6 +361,7 @@ func enoughOptions(config *ss.Config) bool {
 }
 
 func main() {
+	
 	log.SetOutput(os.Stdout)
 
 	var configFile, cmdServer, cmdLocal string
