@@ -1,12 +1,12 @@
 # fast-shadowsocks
 
-A fast version of shadowsocks, boosted by a udp ARQ protocol(https://github.com/skywind3000/kcp).
+Fast shadowsocks can increase the webpage loading speed and the download speed by 50%~100%. It's based an udp ARQ protocol(https://github.com/skywind3000/kcp).
 
-**Notice: not compatible with other shadowsocks, since fast shadowsocks do not use TCP**
+**Notice: NOT compatible with other shadowsocks, since fast shadowsocks don't use TCP.**
 
-All config and install method is same as shadowsocks-go
+All config and install method is same as shadowsocks-go. You can use Supervisor to run it as service, totally same as the python version of shadowsocks. [link](https://github.com/shadowsocks/shadowsocks/wiki/Configure-Shadowsocks-with-Supervisor)
 
-You can use Supervisor to run it as service, totally same as the python version of shadowsocks. [link](https://github.com/shadowsocks/shadowsocks/wiki/Configure-Shadowsocks-with-Supervisor)
+Binaries download: [click here](https://github.com/dearplain/fast-shadowsocks/releases/)
 
 # shadowsocks-go
 
