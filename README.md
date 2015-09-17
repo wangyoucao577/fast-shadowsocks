@@ -1,3 +1,12 @@
+# fast-shadowsocks
+
+A fast version of shadowsocks, boosted by a udp ARQ protocol(https://github.com/skywind3000/kcp).
+
+**Notice: not compatible with other shadowsocks, since fast shadowsocks do not use TCP**
+
+All config and install method is same as shadowsocks-go
+You can use Supervisor to run it as service, totally same as the python version of shadowsocks. [link](https://github.com/shadowsocks/shadowsocks/wiki/Configure-Shadowsocks-with-Supervisor)
+
 # shadowsocks-go
 
 Current version: 1.1.4 [![Build Status](https://travis-ci.org/shadowsocks/shadowsocks-go.png?branch=master)](https://travis-ci.org/shadowsocks/shadowsocks-go)
