@@ -5,6 +5,7 @@ A fast version of shadowsocks, boosted by a udp ARQ protocol(https://github.com/
 **Notice: not compatible with other shadowsocks, since fast shadowsocks do not use TCP**
 
 All config and install method is same as shadowsocks-go
+
 You can use Supervisor to run it as service, totally same as the python version of shadowsocks. [link](https://github.com/shadowsocks/shadowsocks/wiki/Configure-Shadowsocks-with-Supervisor)
 
 # shadowsocks-go
