@@ -97,17 +97,14 @@ type Action struct {
 	// os.Exit(1)
 // }
 
-var gListener *Listener
-var gListenerMutex = sync.RWMutex{}
-
 func newListener(local string) (*Listener, error) {
 	
-	l := &Listener{//UDPContext:UDPContext{sock:sock,remote:udpAddr},
+	l := &Listener{
 	sessions:make(map[string]*UDPMakeSession),
 	sessionIDs:make(map[uint32]*UDPMakeSession),
-	RWMutex:sync.RWMutex{},//incomeLock:sync.RWMutex{},incomes:list.New(),newSession:make(chan *UDPMakeSession, )
-	newSession:make(chan bool, 1),
-	waitQueue:list.New(),waitQueueLock:sync.RWMutex{},quitChan:make(chan bool)}
+	RWMutex:sync.RWMutex{},newSession:make(chan bool, 1),
+	waitQueue:list.New(),waitQueueLock:sync.RWMutex{},
+	quitChan:make(chan bool)}
 	
 	if local != "" {
 		
@@ -127,7 +124,6 @@ func newListener(local string) (*Listener, error) {
 		
 		sock, _err := net.ListenUDP("udp", &net.UDPAddr{})
 		if _err != nil {
-			gListenerMutex.Unlock()
 			return nil, _err
 		}
 		
@@ -201,23 +197,7 @@ func NewUDPMakeSession(remote *net.UDPAddr, local *net.UDPConn, id uint32) (*UDP
 }
 
 func Listen(addr string) (*Listener, error) {
-	
-	gListenerMutex.Lock()
-	
-	if gListener == nil {
-		
-		l, err := newListener(addr)
-		if err != nil {
-			gListenerMutex.Unlock()
-			return nil, err
-		}
-		
-		gListener = l
-	}
-	
-	gListenerMutex.Unlock()
-	
-	return gListener, nil
+	return newListener(addr)
 }
 
 func (l *Listener) recvLoop() {
@@ -524,7 +504,7 @@ func (session *UDPMakeSession) updateLoop() {
 		
 		if i % 100 == 0 {
 			
-			if time.Since(session.lastRead).Seconds() > 3 && time.Since(session.lastWrite).Seconds() > 3 {
+			if time.Since(session.lastRead).Seconds() > 6 && time.Since(session.lastWrite).Seconds() > 6 {
 				//log.Println(session.id, "timeout close session")
 				session.Close()
 			}
@@ -735,11 +715,11 @@ func (session *UDPMakeSession) SetWriteDeadline(t time.Time) error {
 
 
 func (l *Listener) Close() error {
+	l.close = true
 	if l.sock != nil {
 		l.sock.Close()
-		l.sock = nil
+		//l.sock = nil
 	}
-	l.close = true
 	close(l.quitChan)
 	//log.Println("listener close")
 	return nil
