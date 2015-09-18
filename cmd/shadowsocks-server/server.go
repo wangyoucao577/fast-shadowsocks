@@ -16,7 +16,7 @@ import (
 	"sync"
 	"syscall"
 	
-	"../../pipe"
+	pipe "../../pipe"
 )
 
 var debug ss.DebugLog

@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"time"
 	
-	"../../pipe"
+	pipe "../../pipe"
 )
 
 var debug ss.DebugLog
