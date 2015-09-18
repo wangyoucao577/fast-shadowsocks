@@ -7,7 +7,7 @@ import (
 	"errors"
 	"time"
 	"container/list"
-	"../ikcp"
+	"github.com/dearplain/fast-shadowsocks/ikcp"
 	//"log"
 	
 	//"runtime"
