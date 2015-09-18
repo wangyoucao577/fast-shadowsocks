@@ -5,7 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	ss "../../shadowsocks"
+	ss "github.com/dearplain/fast-shadowsocks/shadowsocks"
 	"io"
 	"log"
 	"math/rand"
@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"time"
 	
-	pipe "../../pipe"
+	"github.com/dearplain/fast-shadowsocks/pipe"
 )
 
 var debug ss.DebugLog

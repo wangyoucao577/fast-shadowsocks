@@ -5,7 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	ss "../../shadowsocks"
+	ss "github.com/dearplain/fast-shadowsocks/shadowsocks"
 	"io"
 	"log"
 	"net"
@@ -16,7 +16,7 @@ import (
 	"sync"
 	"syscall"
 	
-	pipe "../../pipe"
+	"github.com/dearplain/fast-shadowsocks/pipe"
 )
 
 var debug ss.DebugLog
