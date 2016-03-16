@@ -333,6 +333,17 @@ func install() {
 	}
 	fmt.Println(status)
 }
+func remove() {
+	service, err := daemon.New("shadowsocks-server", "shadowsocks")
+	if err != nil {
+		log.Fatal("Error: ", err)
+	}
+	status, err := service.Remove()
+	if err != nil {
+		log.Fatal(status, "\nError: ", err)
+	}
+	fmt.Println(status)
+}
 
 var configFile string
 var config *ss.Config
@@ -346,6 +357,7 @@ func main() {
 	var core int
 
 	var toInstall bool
+	var toRemove bool
 
 	flag.BoolVar(&printVer, "version", false, "print version")
 	flag.StringVar(&configFile, "c", "./config.json", "specify config file")
@@ -356,6 +368,7 @@ func main() {
 	flag.IntVar(&core, "core", 0, "maximum number of CPU cores to use, default is determinied by Go runtime")
 	flag.BoolVar((*bool)(&debug), "d", false, "print debug message")
 	flag.BoolVar((*bool)(&toInstall), "install", false, "install as service")
+	flag.BoolVar((*bool)(&toRemove), "uninstall", false, "uninstall service")
 
 	flag.Parse()
 
@@ -379,6 +392,11 @@ func main() {
 example:
 ./shadowsocks-server -install -k password -p 1288`)
 		}
+		os.Exit(0)
+	}
+
+	if toRemove {
+		remove()
 		os.Exit(0)
 	}
 
