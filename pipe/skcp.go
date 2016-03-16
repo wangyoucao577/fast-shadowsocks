@@ -1,15 +1,15 @@
 package pipe
 
 import (
-	"net"
-	"sync"
+	"container/list"
 	"encoding/binary"
 	"errors"
-	"time"
-	"container/list"
 	"github.com/dearplain/fast-shadowsocks/ikcp"
+	"net"
+	"sync"
+	"time"
 	//"log"
-	
+
 	//"runtime"
 	//"io/ioutil"
 	//"os"
@@ -31,108 +31,108 @@ const (
 )
 
 func udp_output(buf []byte, _len int32, kcp *ikcp.Ikcpcb, user interface{}) int32 {
-    c := (user).(*UDPContext)
+	c := (user).(*UDPContext)
 	c.sock.WriteToUDP(buf[:_len], c.remote)
 	return 0
 }
 
 type UDPContext struct {
-	sock              *net.UDPConn
-	remote            *net.UDPAddr
+	sock   *net.UDPConn
+	remote *net.UDPAddr
 }
 
 type UDPMakeSession struct {
 	UDPContext
-	l                 *Listener
-	kcp               *ikcp.Ikcpcb
-	id                uint32
-	waitData          chan bool
+	l        *Listener
+	kcp      *ikcp.Ikcpcb
+	id       uint32
+	waitData chan bool
 	sync.RWMutex
-	close             bool
-	
-	readCache         *list.List
-	readCacheLen      int
-	readCacheReaded   int
-	
-	lastRead          time.Time
-	lastWrite         time.Time
-	
-	quitChan    chan bool
+	close bool
+
+	readCache       *list.List
+	readCacheLen    int
+	readCacheReaded int
+
+	lastRead  time.Time
+	lastWrite time.Time
+
+	quitChan chan bool
 }
 
 type Listener struct {
 	sock       *net.UDPConn
-	sessions     map[string]*UDPMakeSession
-	sessionIDs   map[uint32]*UDPMakeSession
+	sessions   map[string]*UDPMakeSession
+	sessionIDs map[uint32]*UDPMakeSession
 	id         uint32
-	
+
 	sync.RWMutex
-	
-	close      bool
-	
+
+	close bool
+
 	newSession chan bool
-	
+
 	waitQueue     *list.List
 	waitQueueLock sync.RWMutex
-	
-	quitChan    chan bool
+
+	quitChan chan bool
 }
 
 type Action struct {
-	c    chan bool
+	c   chan bool
 	arg interface{}
 }
 
 // func SavePanic() {
-	
-	// r := recover()
-	// if r == nil {
-		// return
-	// }
-	
-	// buf := make([]byte, 10000)
-	// buf = buf[:runtime.Stack(buf, false)]
-	
-	// ioutil.WriteFile("err.txt", buf, 0644)
-	// os.Exit(1)
+
+// r := recover()
+// if r == nil {
+// return
+// }
+
+// buf := make([]byte, 10000)
+// buf = buf[:runtime.Stack(buf, false)]
+
+// ioutil.WriteFile("err.txt", buf, 0644)
+// os.Exit(1)
 // }
 
 func newListener(local string) (*Listener, error) {
-	
+
 	l := &Listener{
-	sessions:make(map[string]*UDPMakeSession),
-	sessionIDs:make(map[uint32]*UDPMakeSession),
-	RWMutex:sync.RWMutex{},newSession:make(chan bool, 1),
-	waitQueue:list.New(),waitQueueLock:sync.RWMutex{},
-	quitChan:make(chan bool)}
-	
+		sessions:   make(map[string]*UDPMakeSession),
+		sessionIDs: make(map[uint32]*UDPMakeSession),
+		RWMutex:    sync.RWMutex{}, newSession: make(chan bool, 1),
+		waitQueue: list.New(), waitQueueLock: sync.RWMutex{},
+		quitChan: make(chan bool)}
+
 	if local != "" {
-		
+
 		udpAddr, err := net.ResolveUDPAddr("udp", local)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		sock, _err := net.ListenUDP("udp", udpAddr)
 		if _err != nil {
 			return nil, _err
 		}
-		
+
 		l.sock = sock
-		
+
 	} else {
-		
+
 		sock, _err := net.ListenUDP("udp", &net.UDPAddr{})
 		if _err != nil {
 			return nil, _err
 		}
-		
+
 		l.sock = sock
-		
+
 	}
-	
+
 	go l.recvLoop()
-	
+
 	return l, nil
 }
 
@@ -152,47 +152,47 @@ func (l *Listener) newID() uint32 {
 	return id
 }
 
-func (l *Listener) NewUDPMakeSession(remote *net.UDPAddr) (*UDPMakeSession) {
-	
+func (l *Listener) NewUDPMakeSession(remote *net.UDPAddr) *UDPMakeSession {
+
 	addrStr := remote.String()
-	
-	session := &UDPMakeSession{UDPContext:UDPContext{remote:remote,sock:l.sock},l:l,waitData:make(chan bool, 1),readCache:list.New(),RWMutex:sync.RWMutex{},quitChan:make(chan bool, 1)}
-	
+
+	session := &UDPMakeSession{UDPContext: UDPContext{remote: remote, sock: l.sock}, l: l, waitData: make(chan bool, 1), readCache: list.New(), RWMutex: sync.RWMutex{}, quitChan: make(chan bool, 1)}
+
 	l.Lock()
 	id := l.newID()
 	l.sessions[addrStr] = session
 	l.sessionIDs[id] = session
 	l.Unlock()
-	
+
 	session.id = id
-	
+
 	kcp := ikcp.Ikcp_create(id, &session.UDPContext)
 	kcp.Output = udp_output
 	ikcp.Ikcp_wndsize(kcp, 128, 128)
 	ikcp.Ikcp_nodelay(kcp, 1, 10, 2, 1)
-	
+
 	session.kcp = kcp
-	
+
 	session.lastRead = time.Now()
 	session.lastWrite = time.Now()
-	
+
 	return session
 }
 
-func NewUDPMakeSession(remote *net.UDPAddr, local *net.UDPConn, id uint32) (*UDPMakeSession) {
-	
-	session := &UDPMakeSession{UDPContext:UDPContext{remote:remote,sock:local},id:id,waitData:make(chan bool, 1),readCache:list.New(),RWMutex:sync.RWMutex{},quitChan:make(chan bool, 1)}
-	
+func NewUDPMakeSession(remote *net.UDPAddr, local *net.UDPConn, id uint32) *UDPMakeSession {
+
+	session := &UDPMakeSession{UDPContext: UDPContext{remote: remote, sock: local}, id: id, waitData: make(chan bool, 1), readCache: list.New(), RWMutex: sync.RWMutex{}, quitChan: make(chan bool, 1)}
+
 	kcp := ikcp.Ikcp_create(id, &session.UDPContext)
 	kcp.Output = udp_output
 	ikcp.Ikcp_wndsize(kcp, 128, 128)
 	ikcp.Ikcp_nodelay(kcp, 1, 10, 2, 1)
-	
+
 	session.kcp = kcp
-	
+
 	session.lastRead = time.Now()
 	session.lastWrite = time.Now()
-	
+
 	return session
 }
 
@@ -201,103 +201,102 @@ func Listen(addr string) (*Listener, error) {
 }
 
 func (l *Listener) recvLoop() {
-	
+
 	// defer SavePanic()
-	
+
 	buf := make([]byte, 5000)
-	
+
 	for {
-		
+
 		if l.close == true {
 			break
 		}
-		
+
 		n, from, err := l.sock.ReadFromUDP(buf)
 		if n > 0 && err == nil {
-			
+
 			addr := from.String()
 			conv := binary.LittleEndian.Uint32(buf)
 			l.Lock()
 			session, bHave := l.sessions[addr]
 			l.Unlock()
-			
+
 			if conv == uint32(FirstSYN) {
-				
+
 				if bHave == false {
 					session = l.NewUDPMakeSession(from)
 					//log.Println("FirstSYN:", session.id)
-					
+
 					l.waitQueueLock.Lock()
 					l.waitQueue.PushBack(session)
 					l.waitQueueLock.Unlock()
-					
-					select {
-						case l.newSession <- true:
-						default:
-					}
-					
+
 				}
-				
+
 				if session != nil {
 					binary.LittleEndian.PutUint32(buf, uint32(SndSYN))
 					binary.LittleEndian.PutUint32(buf[4:], session.id)
 					l.sock.WriteToUDP(buf[:8], from)
 				}
-				
+
+				select {
+				case l.newSession <- true:
+				default:
+				}
+
 				continue
 			}
-			
+
 			/* if conv == FirstACK {
-				
+
 				id := binary.LittleEndian.Uint32(buf[4:])
 				log.Println("firstack:", id)
 				l.Lock()
 				session,bHave := l.sessionIDs[id]
 				l.Unlock()
 				if bHave {
-					
-					
+
+
 					//这个有必要发 让对方dial完成 返回session
 					binary.LittleEndian.PutUint32(buf, SndACK)
 					binary.LittleEndian.PutUint32(buf[4:], session.id)
 					l.sock.WriteToUDP(buf[:8], from)
-					
+
 				}
-				
+
 				continue
 			} */
-			
-			
+
 			if bHave {
 				session.Lock()
 				//if session.close == false {
-					ikcp.Ikcp_input(session.kcp, buf, n)
+				ikcp.Ikcp_input(session.kcp, buf, n)
 				//}
 				session.Unlock()
 			}
-			
+
 		}
-		
+
 		if n < 0 {
 			break
 		}
-		
+
 		//log.Println("recvLoop")
 	}
-	
+
 }
 
 func (l *Listener) Accept() (*UDPMakeSession, error) {
-	
+
 	// defer SavePanic()
-	
+
 	var session *UDPMakeSession
-	
+
 	//log.Println("B Accept")
 	for {
-		
+
 		session = nil
-		
+
 		l.waitQueueLock.Lock()
 		lp := l.waitQueue.Front()
 		if lp != nil {
@@ -305,30 +304,29 @@ func (l *Listener) Accept() (*UDPMakeSession, error) {
 			l.waitQueue.Remove(lp)
 		}
 		l.waitQueueLock.Unlock()
-		
+
 		if session != nil {
 			break
 		}
-		
+
 		select {
-			case <- l.newSession:
-			case <- l.quitChan:
-				return nil, errors.New("listener close")
+		case <-l.newSession:
+		case <-l.quitChan:
+			return nil, errors.New("listener close")
 		}
-		
+
 		//log.Println("Accept")
-		
+
 	}
-	
+
 	go session.updateLoop()
 	//log.Println("e Accept, sid: ", session.id)
-	
+
 	return session, nil
 }
 
-
 func iclock() int32 {
-    return int32((time.Now().UnixNano()/1000000) & 0xffffffff)
+	return int32((time.Now().UnixNano() / 1000000) & 0xffffffff)
 }
 
 func Dial(remote string) (*UDPMakeSession, error) {
@@ -338,22 +336,22 @@ func Dial(remote string) (*UDPMakeSession, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	sock, _err := net.ListenUDP("udp", &net.UDPAddr{})
 	if _err != nil {
 		return nil, _err
 	}
-	
+
 	var session *UDPMakeSession
-	
+
 	var id uint32
 	//buf := make([]byte, 1500) //udp包大小不超过1400
 	buf := make([]byte, 8)
 	//var n int
-	for j := 0 ; j < 20 ; j = j+1 {
+	for j := 0; j < 20; j = j + 1 {
 		binary.LittleEndian.PutUint32(buf, uint32(FirstSYN))
 		sock.WriteTo(buf[:8], udpAddr)
-		sock.SetReadDeadline(time.Now().Add(100*time.Millisecond))
+		sock.SetReadDeadline(time.Now().Add(300 * time.Millisecond))
 		_n, from, err := sock.ReadFromUDP(buf)
 		//log.Println(_n, from, err)
 		//n = _n
@@ -373,9 +371,9 @@ func Dial(remote string) (*UDPMakeSession, error) {
 			//	session = NewUDPMakeSession(udpAddr, sock, id)
 			//	break
 			//}
-			
+
 			//if id >= 10 && conv == SndACK {
-				
+
 			//	break
 			//}
 		}
@@ -389,10 +387,10 @@ func Dial(remote string) (*UDPMakeSession, error) {
 		}
 		_ = from
 	}
-	
+
 	go session.readLoop()
 	go session.updateLoop()
-	
+
 	//log.Println("Dial end, id: ", id)
 	return session, nil
 }
@@ -402,10 +400,10 @@ func (session *UDPMakeSession) readLoop() {
 	buf := make([]byte, 8000)
 	for {
 		//if session.close == true {
-			//log.Println(session.id, "readLoop should close")
+		//log.Println(session.id, "readLoop should close")
 		//	break
 		//}
-		session.sock.SetReadDeadline(time.Now().Add(100*time.Millisecond))
+		session.sock.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
 		n, from, err := session.sock.ReadFromUDP(buf)
 		if err == nil && n > 0 {
 			//log.Println("readLoop:", n, binary.LittleEndian.Uint32(buf))
@@ -420,14 +418,14 @@ func (session *UDPMakeSession) readLoop() {
 			//log.Println("ReadFromUDP error:", err)
 			break
 		}
-		
+
 		if err != nil {
 			if netErr, ok := err.(net.Error); ok && netErr.Timeout() == false {
 				//log.Println("readLoop", err)
 				break
 			}
 		}
-		
+
 		//log.Println("readLoop", err)
 	}
 
@@ -443,22 +441,22 @@ func (session *UDPMakeSession) kcpRecv(buf []byte) {
 		nbuf := make([]byte, n)
 		copy(nbuf, buf[:n])
 		session.readCache.PushBack(nbuf)
-		
+
 		//log.Println(session.id, "select wait")
 		select {
-			case <- session.quitChan:
-			case session.waitData <- true :
-			default:
+		case <-session.quitChan:
+		case session.waitData <- true:
+		default:
 		}
 		//log.Println(session.id, "select wait e")
 		//log.Println("kcpRecv")
 		// if session.close == false {
-			// select {
-				// case session.waitData <- true :
-				// default:
-			// }
+		// select {
+		// case session.waitData <- true :
+		// default:
 		// }
-		
+		// }
+
 	}
 }
 
@@ -466,19 +464,19 @@ func (session *UDPMakeSession) kcpRecv(buf []byte) {
 func (session *UDPMakeSession) updateLoop() {
 	// defer SavePanic()
 	buf := make([]byte, 10000)
-	
+
 	var i uint32
-	
+
 	for {
-		
+
 		if session.close == true {
 			//log.Println(session.id, "close loop b")
-			for j := 0; j < 20 ; j = j+1 {
+			for j := 0; j < 20; j = j + 1 {
 				session.Lock()
 				ikcp.Ikcp_update(session.kcp, uint32(iclock()))
 				session.kcpRecv(buf)
 				session.Unlock()
-				time.Sleep(20* time.Millisecond)
+				time.Sleep(20 * time.Millisecond)
 			}
 			if session.l != nil {
 				session.l.Lock()
@@ -491,30 +489,30 @@ func (session *UDPMakeSession) updateLoop() {
 			//log.Println(session.id, "close loop e")
 			break
 		}
-		
+
 		session.Lock()
 		ikcp.Ikcp_update(session.kcp, uint32(iclock()))
-		
+
 		i = i + 1
-		
+
 		//if i % 2 == 0 {
-			session.kcpRecv(buf)
+		session.kcpRecv(buf)
 		//}
 		session.Unlock()
-		
-		if i % 100 == 0 {
-			
+
+		if i%100 == 0 {
+
 			if time.Since(session.lastRead).Seconds() > 6 && time.Since(session.lastWrite).Seconds() > 6 {
 				//log.Println(session.id, "timeout close session")
 				session.Close()
 			}
-			
+
 		}
-		
-		time.Sleep(10* time.Millisecond)
-		
+
+		time.Sleep(10 * time.Millisecond)
+
 	}
-	
+
 }
 
 func (session *UDPMakeSession) Read(p []byte) (n int, err error) {
@@ -523,58 +521,58 @@ func (session *UDPMakeSession) Read(p []byte) (n int, err error) {
 	//if session.close == true {
 	//	return -1, errors.New("socket close")
 	//}
-	
+
 	for {
-		
+
 		var cmd byte = 0
-		
+
 		session.Lock()
-		
+
 		lp := session.readCache.Front()
-		
-		if  lp != nil {
-			
+
+		if lp != nil {
+
 			tmp := lp.Value.([]byte)
-			
+
 			if session.readCacheReaded < session.readCacheLen {
 				n = len(p)
 				if n > session.readCacheLen-session.readCacheReaded {
-					n = session.readCacheLen-session.readCacheReaded
+					n = session.readCacheLen - session.readCacheReaded
 				}
 				copy(p, tmp[session.readCacheReaded:session.readCacheReaded+n])
-				session.readCacheReaded = session.readCacheReaded+n
-				
+				session.readCacheReaded = session.readCacheReaded + n
+
 			} else {
 				hr := len(tmp)
 				cmd = tmp[0]
 				n = len(p)
 				if n > hr-1 { //缓冲大于接收
-					n = hr-1
+					n = hr - 1
 				} else if n < hr-1 { //接收大于缓冲
-					session.readCacheReaded = n+1
+					session.readCacheReaded = n + 1
 					session.readCacheLen = hr
 				}
 				if n > 0 {
 					copy(p, tmp[1:n+1])
 				}
-				
+
 			}
 			//log.Println(session.id, n, session.readCacheReaded, session.readCacheLen)
 			if session.readCacheReaded >= session.readCacheLen {
-				
+
 				session.readCache.Remove(lp)
 			}
-			
+
 			session.lastRead = time.Now()
-			
+
 		}
 		session.Unlock()
-		
+
 		if cmd == Close {
 			session._Close()
 			return 0, errors.New("cmd=close socket close")
 		}
-		
+
 		if n == 0 {
 			//log.Println(session.id, "wait")
 			if session.close == true {
@@ -583,8 +581,8 @@ func (session *UDPMakeSession) Read(p []byte) (n int, err error) {
 			}
 			//log.Println(session.id, "select wait")
 			select {
-				case <- session.quitChan:
-				case <- session.waitData:
+			case <-session.quitChan:
+			case <-session.waitData:
 			}
 			//<- session.waitData
 			//log.Println(session.id, "select wait")
@@ -592,12 +590,11 @@ func (session *UDPMakeSession) Read(p []byte) (n int, err error) {
 		} else {
 			break
 		}
-		
-		
+
 	}
-	
+
 	return n, nil
-	
+
 }
 
 /*
@@ -625,15 +622,15 @@ func (session *UDPMakeSession) Write(b []byte) (n int, err error) {
 	if session.close == true {
 		return 0, errors.New("socket close")
 	}
-	
+
 	for {
 		if ikcp.Ikcp_waitsnd(session.kcp) > dataLimit {
-			time.Sleep(40* time.Millisecond)
+			time.Sleep(40 * time.Millisecond)
 		} else {
 			break
 		}
 	}
-	
+
 	data := make([]byte, sendL+1)
 	data[0] = Data
 	copy(data[1:], b)
@@ -642,42 +639,42 @@ func (session *UDPMakeSession) Write(b []byte) (n int, err error) {
 	ikcp.Ikcp_send(session.kcp, data, sendL+1)
 	session.lastWrite = time.Now()
 	session.Unlock()
-	
+
 	return sendL, err
 }
 
 func (session *UDPMakeSession) _Close() error {
-	
+
 	if session.close == true {
 		return nil
 	}
-	
+
 	session.close = true
 	close(session.quitChan)
-	
+
 	return nil
 }
 
 //send close cmd  虽然有超时机制 还是有必要发送关闭命令关闭远端
 func (session *UDPMakeSession) Close() error {
-	
+
 	if session.close == true {
 		return nil
 	}
-	
+
 	session.close = true
 	close(session.quitChan)
-	
+
 	data := []byte{Close}
 	session.Lock()
 	ikcp.Ikcp_send(session.kcp, data, 1)
 	session.Unlock()
-	
+
 	//不要在这里删除session
 	//session.l.Lock()
 	//delete(session.l.sessions, session.id)
 	//session.l.Unlock()
-	
+
 	return nil
 }
 
@@ -712,7 +709,6 @@ func (session *UDPMakeSession) SetWriteDeadline(t time.Time) error {
 	}
 	return nil
 }
-
 
 func (l *Listener) Close() error {
 	l.close = true
