@@ -375,10 +375,7 @@ func main() {
 				install()
 			}
 		} else {
-			fmt.Println(`you must specify port and password to install as service.
-				example:
-				./shadowsocks-server -install -k password -p 1288
-				`)
+			fmt.Println(`you must specify port and password to install as service.\nexample:\n./shadowsocks-server -install -k password -p 1288`)
 		}
 		os.Exit(0)
 	}
