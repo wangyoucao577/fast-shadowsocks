@@ -15,8 +15,10 @@ import (
 	"strconv"
 	"sync"
 	"syscall"
-	
+
 	"github.com/dearplain/fast-shadowsocks/pipe"
+
+	"github.com/takama/daemon"
 )
 
 var debug ss.DebugLog
@@ -46,7 +48,7 @@ func getRequest(conn *ss.Conn) (host string, extra []byte, err error) {
 	ss.SetReadTimeout(conn)
 	if n, err = io.ReadAtLeast(conn, buf, idDmLen+1); err != nil {
 		if err == io.ErrShortBuffer {
-			
+
 		} else {
 			return
 		}
@@ -65,12 +67,12 @@ func getRequest(conn *ss.Conn) (host string, extra []byte, err error) {
 		err = fmt.Errorf("addr type %d not supported", buf[idType])
 		return
 	}
-	
+
 	if n < reqLen { // rare case
 		var _n int
 		if _n, err = io.ReadFull(conn, buf[n:reqLen]); err != nil {
 			if _n > 0 && err != io.ErrUnexpectedEOF {
-				
+
 			} else {
 				return
 			}
@@ -153,7 +155,7 @@ func handleConnection(conn *ss.Conn) {
 			remote.Close()
 		}
 	}()
-	
+
 	// write extra bytes read from
 	if extra != nil {
 		// debug.Println("getRequest read extra data, writing to remote, len", len(extra))
@@ -270,7 +272,7 @@ func waitSignal() {
 
 func run(port, password string) {
 	//ln, err := net.Listen("tcp", ":"+port)
-	ln, err := pipe.Listen(":"+port)
+	ln, err := pipe.Listen(":" + port)
 	if err != nil {
 		log.Printf("error listening port %v: %v\n", port, err)
 		os.Exit(1)
@@ -319,6 +321,18 @@ func unifyPortPassword(config *ss.Config) (err error) {
 	return
 }
 
+func install() {
+	service, err := daemon.New("shadowsocks-server", "shadowsocks")
+	if err != nil {
+		log.Fatal("Error: ", err)
+	}
+	status, err := service.Install()
+	if err != nil {
+		log.Fatal(status, "\nError: ", err)
+	}
+	fmt.Println(status)
+}
+
 var configFile string
 var config *ss.Config
 
@@ -330,19 +344,41 @@ func main() {
 	var printVer bool
 	var core int
 
+	var toInstall bool
+
 	flag.BoolVar(&printVer, "version", false, "print version")
-	flag.StringVar(&configFile, "c", "config.json", "specify config file")
+	flag.StringVar(&configFile, "c", "./config.json", "specify config file")
 	flag.StringVar(&cmdConfig.Password, "k", "", "password")
 	flag.IntVar(&cmdConfig.ServerPort, "p", 0, "server port")
 	flag.IntVar(&cmdConfig.Timeout, "t", 300, "timeout in seconds")
 	flag.StringVar(&cmdConfig.Method, "m", "", "encryption method, default: aes-256-cfb")
 	flag.IntVar(&core, "core", 0, "maximum number of CPU cores to use, default is determinied by Go runtime")
 	flag.BoolVar((*bool)(&debug), "d", false, "print debug message")
+	flag.BoolVar((*bool)(&toInstall), "install", false, "install as service")
 
 	flag.Parse()
 
 	if printVer {
 		ss.PrintVersion()
+		os.Exit(0)
+	}
+
+	if toInstall {
+		if cmdConfig.Password != "" && cmdConfig.ServerPort != 0 {
+			var fstr string = `{"server_port":%d,"password":"%s","method":"aes-256-cfb","timeout":300}`
+			wstr := fmt.Sprintf(istr, cmdConfig.ServerPort, cmdConfig.Password)
+			err := ioutil.WriteFile("./config.json", wstr, 0644)
+			if err != nil {
+				fmt.Println(err)
+			} else {
+				install()
+			}
+		} else {
+			fmt.Println(`you must specify port and password to install as service.
+				example:
+				./shadowsocks-server -install -k password -p 1288
+				`)
+		}
 		os.Exit(0)
 	}
 
