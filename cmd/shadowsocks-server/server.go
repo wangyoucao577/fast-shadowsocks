@@ -19,6 +19,7 @@ import (
 	"github.com/dearplain/fast-shadowsocks/pipe"
 
 	"github.com/takama/daemon"
+	"io/ioutil"
 )
 
 var debug ss.DebugLog
@@ -365,9 +366,9 @@ func main() {
 
 	if toInstall {
 		if cmdConfig.Password != "" && cmdConfig.ServerPort != 0 {
-			var fstr string = `{"server_port":%d,"password":"%s","method":"aes-256-cfb","timeout":300}`
+			var istr string = `{"server_port":%d,"password":"%s","method":"aes-256-cfb","timeout":300}`
 			wstr := fmt.Sprintf(istr, cmdConfig.ServerPort, cmdConfig.Password)
-			err := ioutil.WriteFile("./config.json", wstr, 0644)
+			err := ioutil.WriteFile("./config.json", []byte(wstr), 0644)
 			if err != nil {
 				fmt.Println(err)
 			} else {
