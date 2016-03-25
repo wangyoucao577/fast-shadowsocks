@@ -231,17 +231,17 @@ func (l *Listener) recvLoop() {
 					l.waitQueue.PushBack(session)
 					l.waitQueueLock.Unlock()
 
+					select {
+					case l.newSession <- true:
+					default:
+					}
+
 				}
 
 				if session != nil {
 					binary.LittleEndian.PutUint32(buf, uint32(SndSYN))
 					binary.LittleEndian.PutUint32(buf[4:], session.id)
 					l.sock.WriteToUDP(buf[:8], from)
-				}
-
-				select {
-				case l.newSession <- true:
-				default:
 				}
 
 				continue
@@ -311,6 +311,7 @@ func (l *Listener) Accept() (*UDPMakeSession, error) {
 
 		select {
 		case <-l.newSession:
+		case <-time.After(time.Millisecond * 300):
 		case <-l.quitChan:
 			return nil, errors.New("listener close")
 		}
