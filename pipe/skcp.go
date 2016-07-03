@@ -13,6 +13,7 @@ import (
 )
 
 const dataLimit = 60
+const recvBufLen = 20 * 1024
 
 const (
 	CmdClose byte = 2 + iota
@@ -50,17 +51,17 @@ type UDPSession struct {
 	localAddr       *net.UDPAddr
 	kcp             *ikcp.Ikcpcb
 	close           bool
-	waitData        chan bool
 	quitChan        chan bool
 	readTempBuf     []byte
 	readCacheLen    int
 	readCacheReaded int
-	readRemain      int
 	readChan        chan []byte
 	lastRead        time.Time
 	lastWrite       time.Time
 	//waitingData     bool
 	//readCache       *list.List
+	//waitData        chan bool
+	//readRemain      int
 }
 
 type Listener struct {
@@ -70,11 +71,6 @@ type Listener struct {
 	close       bool
 	newSession  chan *UDPSession
 	quitChan    chan bool
-}
-
-type Action struct {
-	c   chan bool
-	arg interface{}
 }
 
 /*
@@ -169,7 +165,6 @@ func newUDPSession(listener *Listener, remote *net.UDPAddr, local *net.UDPConn, 
 		},
 		listener:  listener,
 		localAddr: localAddr,
-		waitData:  make(chan bool, 1),
 		readChan:  make(chan []byte, 50),
 		RWMutex:   sync.RWMutex{},
 		readLock:  sync.RWMutex{},
@@ -178,6 +173,7 @@ func newUDPSession(listener *Listener, remote *net.UDPAddr, local *net.UDPConn, 
 		lastRead:  time.Now(),
 		lastWrite: time.Now(),
 		//readCache: list.New(),
+		//waitData:  make(chan bool, 1),
 	}
 
 	kcp := ikcp.Ikcp_create(0xeeeeeeee, &session.UDPContext)
@@ -339,7 +335,7 @@ func xorWithConst(dst, src []byte) {
 func (session *UDPSession) readLoop() {
 	// defer SavePanic()
 
-	buf := make([]byte, 20*1024)
+	buf := make([]byte, recvBufLen)
 	//ebuf := make([]byte, 20*1024)
 	for {
 		//log.Println("readLoop")
@@ -401,7 +397,7 @@ func (session *UDPSession) readLoop() {
 func (session *UDPSession) kcpRecv(buf []byte) {
 	for {
 		session.Lock()
-		n := ikcp.Ikcp_recv(session.kcp, buf, 10000)
+		n := ikcp.Ikcp_recv(session.kcp, buf, int32(len(buf)))
 		session.Unlock()
 		if n <= 0 {
 			break
@@ -453,7 +449,7 @@ func (session *UDPSession) updateLoop() {
 		ikcp.Ikcp_update(session.kcp, uint32(iclock()))
 		//session.kcpRecv(buf)
 		session.Unlock()
-		//session.kcpRecv(buf)  //不要卡住 卡住就无法update了
+		//session.kcpRecv(buf)  //现在kcpRecv会卡住 卡住就无法update了
 		i = i + 1
 		if i%100 == 0 {
 			if time.Since(session.lastRead).Seconds() > 30 && time.Since(session.lastWrite).Seconds() > 30 {
@@ -590,9 +586,6 @@ func (session *UDPSession) Read(p []byte) (n int, err error) {
 
 	}
 	session.lastRead = time.Now()
-	if n > 0 {
-		session.readRemain = session.readRemain - n
-	}
 
 	session.readLock.Unlock()
 
