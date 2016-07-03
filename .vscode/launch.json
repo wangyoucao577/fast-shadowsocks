@@ -1,0 +1,29 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "server",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "remotePath": "",
+            "port": 2345,
+            "host": "127.0.0.1",
+            "program": "${workspaceRoot}/cmd/shadowsocks-server",
+            "env": {},
+            "args": []
+        },
+        {
+            "name": "local",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "remotePath": "",
+            "port": 2345,
+            "host": "127.0.0.1",
+            "program": "${workspaceRoot}/cmd/shadowsocks-local",
+            "env": {},
+            "args": ["-d"]
+        }
+    ]
+}
