@@ -212,7 +212,7 @@ func getSocksRequest(buf []byte) (rawaddr []byte, host string, err error) {
 	}
 
 	rawaddr = buf[idType:reqLen]
-	log.Println(string(rawaddr))
+	//log.Println(string(rawaddr))
 
 	if debug {
 		switch buf[idType] {
