@@ -14,6 +14,8 @@ import (
 
 const dataLimit = 60
 const recvBufLen = 20 * 1024
+const accpectChanLen = 60
+const readChanLen = 50
 
 const (
 	CmdClose byte = 2 + iota
@@ -100,7 +102,7 @@ func newListener(local string) (*Listener, error) {
 	listener := &Listener{
 		remoteAddrs: make(map[string]*UDPSession),
 		RWMutex:     sync.RWMutex{},
-		newSession:  make(chan *UDPSession, 20),
+		newSession:  make(chan *UDPSession, accpectChanLen),
 		quitChan:    make(chan bool),
 	}
 
@@ -165,7 +167,7 @@ func newUDPSession(listener *Listener, remote *net.UDPAddr, local *net.UDPConn, 
 		},
 		listener:  listener,
 		localAddr: localAddr,
-		readChan:  make(chan []byte, 50),
+		readChan:  make(chan []byte, readChanLen),
 		RWMutex:   sync.RWMutex{},
 		readLock:  sync.RWMutex{},
 		writeLock: sync.RWMutex{},
