@@ -465,6 +465,7 @@ func handleConnection(conn net.Conn) {
 	var rawaddr []byte
 	var addr string
 	var toWrite []byte
+	var writeBack []byte
 	//log.Println(string(buf[:n]))
 	if buf[0] == 'C' || buf[0] == 'G' {
 		rawaddr, addr, toWrite, err = getHttpRequest(buf[:n])
@@ -472,11 +473,7 @@ func handleConnection(conn net.Conn) {
 			log.Println("error getting http request:", err)
 			return
 		}
-		_, err = conn.Write([]byte("HTTP/1.1 200 Connection Established"))
-		if err != nil {
-			debug.Println("send connection confirmation:", err)
-			return
-		}
+		writeBack = []byte("HTTP/1.0 200 Connection established\r\nProxy-agent: Shadowsocks/1.1\r\n\r\n")
 	} else {
 		if err = handSocksShakeByte(buf[:n], conn); err != nil {
 			log.Println("socks handshake:", err)
@@ -487,6 +484,9 @@ func handleConnection(conn net.Conn) {
 			return
 		}
 		rawaddr, addr, err = getSocksRequest(buf[:n])
+		if debug {
+			log.Println(string(rawaddr), "--", rawaddr, addr)
+		}
 		if err != nil {
 			log.Println("error getting request:", err)
 			return
@@ -503,11 +503,22 @@ func handleConnection(conn net.Conn) {
 
 	remote, err := createServerConn(rawaddr, addr)
 	if err != nil {
-		log.Println(err)
 		if len(servers.srvCipher) > 1 {
 			log.Println("Failed connect to all avaiable shadowsocks server")
 		}
 		return
+	}
+	defer func() {
+		if !closed {
+			remote.Close()
+		}
+	}()
+	if len(writeBack) > 0 {
+		_, err = conn.Write(writeBack)
+		if err != nil {
+			debug.Println("send connection confirmation:", err)
+			return
+		}
 	}
 	if len(toWrite) > 0 {
 		_, err = remote.Write(toWrite)
@@ -516,11 +527,6 @@ func handleConnection(conn net.Conn) {
 			return
 		}
 	}
-	defer func() {
-		if !closed {
-			remote.Close()
-		}
-	}()
 
 	go ss.PipeThenClose(conn, remote)
 	ss.PipeThenClose(remote, conn)
