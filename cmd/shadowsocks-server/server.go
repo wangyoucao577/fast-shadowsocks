@@ -5,7 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	ss "github.com/dearplain/fast-shadowsocks/shadowsocks"
+	ss "github.com/wangyoucao577/fast-shadowsocks/shadowsocks"
 	"io"
 	"log"
 	"net"
@@ -16,7 +16,7 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/dearplain/fast-shadowsocks/pipe"
+	"github.com/wangyoucao577/fast-shadowsocks/pipe"
 
 	"github.com/takama/daemon"
 	"io/ioutil"

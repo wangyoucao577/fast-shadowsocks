@@ -16,9 +16,9 @@ import (
 	"strings"
 	"time"
 
-	ss "github.com/dearplain/fast-shadowsocks/shadowsocks"
+	ss "github.com/wangyoucao577/fast-shadowsocks/shadowsocks"
 
-	"github.com/dearplain/fast-shadowsocks/pipe"
+	"github.com/wangyoucao577/fast-shadowsocks/pipe"
 )
 
 var debug ss.DebugLog

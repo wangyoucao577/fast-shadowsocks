@@ -9,7 +9,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/dearplain/fast-shadowsocks/ikcp"
+	"github.com/wangyoucao577/fast-shadowsocks/ikcp"
 )
 
 const dataLimit = 60

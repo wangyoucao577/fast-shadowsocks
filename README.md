@@ -6,7 +6,7 @@ Fast shadowsocks can increase the webpage loading speed and the download speed b
 
 All config and install method is same as shadowsocks-go. You can use Supervisor to run it as service, totally same as the python version of shadowsocks. [click here](https://github.com/shadowsocks/shadowsocks/wiki/Configure-Shadowsocks-with-Supervisor)
 
-Binaries download: [click here](https://github.com/dearplain/fast-shadowsocks/releases/)
+Binaries download: [click here](https://github.com/wangyoucao577/fast-shadowsocks/releases/)
 
 # shadowsocks-go
 
