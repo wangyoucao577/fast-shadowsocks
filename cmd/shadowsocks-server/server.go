@@ -16,8 +16,8 @@ import (
 	"syscall"
 	"time"
 
-	ss "github.com/dearplain/fast-shadowsocks/shadowsocks"
 	"github.com/dearplain/penet"
+	ss "github.com/wangyoucao577/fast-shadowsocks/shadowsocks"
 )
 
 var debug ss.DebugLog

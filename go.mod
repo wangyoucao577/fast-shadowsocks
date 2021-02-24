@@ -1,4 +1,4 @@
-module github.com/dearplain/fast-shadowsocks
+module github.com/wangyoucao577/fast-shadowsocks
 
 go 1.15
 
