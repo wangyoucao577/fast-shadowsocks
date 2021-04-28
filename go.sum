@@ -12,6 +12,7 @@ github.com/isayme/go-config v0.0.0-20190209132515-066212c0ce1b/go.mod h1:gCBIBrm
 github.com/isayme/go-logger v0.1.0/go.mod h1:53zvc0cz+ZjVqZgq1Sb4HEEzl/BPjoLA9xKv5L/XvE4=
 github.com/isayme/go-shadowsocks v0.2.1 h1:b/h+iWExyBLWe4WUOGfdbmregV+0OpVqYt7sfFQTYOs=
 github.com/isayme/go-shadowsocks v0.2.1/go.mod h1:3F2whVaNfYWgXBUSdDy726isLVwtqEjX/rFj667etxA=
+github.com/isayme/go-shadowsocks v0.2.2/go.mod h1:UA1fCPW30LVemz9zLomVhFKNRweYTEVtWreFLK6GZE4=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
 github.com/kr/pty v1.1.1/go.mod h1:pFQYn66WHrOpPYNljwOMqo10TkYh1fy3cYio2l3bCsQ=
 github.com/kr/text v0.1.0/go.mod h1:4Jbv+DJW3UT/LiOwJeYQe1efqtUx/iVham/4vfdArNI=
